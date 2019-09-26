@@ -4,6 +4,7 @@ import org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.GraphTraversal;
 import org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.GraphTraversalSource;
 import org.apache.tinkerpop.gremlin.structure.Vertex;
 import org.janusgraph.core.JanusGraph;
+import org.janusgraph.core.schema.JanusGraphManagement;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -14,6 +15,7 @@ public class JanusGraphSorage implements Closeable {
 
     public JanusGraphSorage(JanusGraph graph) {
         this.graph = graph;
+        makeIndices();
     }
 
     public GraphTraversalSource traversal() {
@@ -68,6 +70,29 @@ public class JanusGraphSorage implements Closeable {
         }
 
         return vertex;
+    }
+
+    private void makeIndices() {
+
+        JanusGraphManagement mgmt = graph.openManagement();
+        createIndex(mgmt, "leafIndex", "Leaf", "type", "value");
+        createIndex(mgmt, "nodeIndex", "Node", "type", "ids");
+        mgmt.commit();
+    }
+
+    private static void createIndex(JanusGraphManagement mgmt, String indexName, String label, String... keys) {
+
+        if (mgmt.getGraphIndex(indexName) == null) {
+            JanusGraphManagement.IndexBuilder builder = mgmt
+                    .buildIndex(indexName, Vertex.class)
+                    .indexOnly(mgmt.getOrCreateVertexLabel(label));
+
+            for (String key : keys) {
+                builder = builder.addKey(mgmt.getOrCreatePropertyKey(key));
+            }
+
+            builder.buildCompositeIndex();
+        }
     }
 
     @Override
