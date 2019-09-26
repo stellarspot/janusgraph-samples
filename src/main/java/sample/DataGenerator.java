@@ -41,9 +41,10 @@ public class DataGenerator {
 
         for (DataNode node : dataNodes) {
             upload(storage, g, node);
+            storage.commit();
         }
 
-        storage.commit();
+        //storage.commit();
 
         storage.printStatistics(g);
     }

@@ -2,19 +2,25 @@ package sample;
 
 import org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.GraphTraversal;
 import org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.GraphTraversalSource;
+import org.apache.tinkerpop.gremlin.structure.T;
 import org.apache.tinkerpop.gremlin.structure.Vertex;
 import org.janusgraph.core.JanusGraph;
 import org.janusgraph.core.schema.JanusGraphManagement;
+import org.janusgraph.graphdb.database.StandardJanusGraph;
+import org.janusgraph.graphdb.idmanagement.IDManager;
 
 import java.io.Closeable;
 import java.io.IOException;
 
 public class JanusGraphSorage implements Closeable {
 
+    long currentId = 0;
     final JanusGraph graph;
+    final IDManager idManager;
 
     public JanusGraphSorage(JanusGraph graph) {
         this.graph = graph;
+        this.idManager = ((StandardJanusGraph) graph).getIDManager();
         makeIndices();
     }
 
@@ -40,6 +46,7 @@ public class JanusGraphSorage implements Closeable {
 
         return g
                 .addV("Leaf")
+                .property(T.id, getNextId())
                 .property("type", type)
                 .property("value", value).next();
     }
@@ -60,6 +67,7 @@ public class JanusGraphSorage implements Closeable {
 
         Vertex vertex = g
                 .addV("Node")
+                .property(T.id, getNextId())
                 .property("type", type)
                 .property("arity", children.length)
                 .property("ids", ids).next();
@@ -93,6 +101,10 @@ public class JanusGraphSorage implements Closeable {
 
             builder.buildCompositeIndex();
         }
+    }
+
+    long getNextId() {
+        return idManager.toVertexId(++currentId);
     }
 
     @Override
