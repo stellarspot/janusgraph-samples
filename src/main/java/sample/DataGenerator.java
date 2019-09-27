@@ -39,12 +39,23 @@ public class DataGenerator {
 
         GraphTraversalSource g = storage.traversal();
 
+        final int maxCommitItereations = 100;
+        int commits = 0;
+        int count = 0;
+
         for (DataNode node : dataNodes) {
             upload(storage, g, node);
-            storage.commit();
+
+            if (count++ >= maxCommitItereations) {
+                storage.commit();
+                count = 0;
+                commits++;
+            }
         }
 
-        //storage.commit();
+        storage.commit();
+        commits++;
+        System.out.printf("commits: %d%n", commits);
 
         storage.printStatistics(g);
     }

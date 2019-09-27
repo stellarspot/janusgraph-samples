@@ -9,7 +9,7 @@ public class DataStorageSample {
 
     public static void main(String[] args) throws Exception {
 
-        int N = 10000;
+        int N = 10;
 
         if (args.length > 0) {
             N = Integer.parseInt(args[0]);
