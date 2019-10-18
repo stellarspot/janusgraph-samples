@@ -14,7 +14,7 @@ public class JanusGraphSample {
 
     // --- Parameters for test ---
     private static final int VERTICES = 10;
-    private static final int ITERATIONS = 10;
+    private static final int ITERATIONS = 20;
     private static final boolean USE_CUSTOM_IDS = true;
     // --- ------------------- ---
 
@@ -125,8 +125,8 @@ public class JanusGraphSample {
 
     private static void printStatistics(MeasuredTime[] times) {
 
-        System.out.printf("Vertices: %d%n", VERTICES);
-        System.out.printf("First call:%n");
+        System.out.printf("Vertices: %d, customIds %b%n", VERTICES, USE_CUSTOM_IDS);
+        System.out.printf("First call ");
         System.out.printf("%s%n", times[0]);
 
         double totalElapsedTime = 0;
@@ -143,8 +143,7 @@ public class JanusGraphSample {
         // exclude first item
         int size = times.length - 1;
 
-        System.out.printf("Other calls:%n");
-        System.out.printf("Average time elapsed: %.2f, creation: %.2f, insertion: %f.2%n",
+        System.out.printf("Average time elapsed: %.2f(ms), creation: %.2f(ms), vertices insertion: %.2f(ms)%n",
                 totalElapsedTime / size, totalCreationTime / size, totalInsertTime / size);
 
     }
@@ -153,7 +152,7 @@ public class JanusGraphSample {
         long vertices = verticesCount(graph);
         System.out.printf("[custom ids] vertices: %d," +
                         " elapsed time:  %d(ms)," +
-                        " graph creation time: %d" +
+                        " graph creation time: %d(ms)" +
                         " vertices insertion time: %d(ms)%n",
                 vertices, measuredTime.elapsedTime, measuredTime.creationTime, measuredTime.insertTime);
     }
