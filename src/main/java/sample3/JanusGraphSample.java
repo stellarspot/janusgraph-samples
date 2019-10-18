@@ -10,25 +10,29 @@ import org.janusgraph.core.JanusGraphTransaction;
 import org.janusgraph.graphdb.database.StandardJanusGraph;
 import org.janusgraph.graphdb.idmanagement.IDManager;
 
-import java.util.ArrayList;
-import java.util.List;
-
 public class JanusGraphSample {
+
+    // --- Parameters for test ---
+    private static final int VERTICES = 10;
+    private static final int ITERATIONS = 10;
+    private static final boolean USE_CUSTOM_IDS = true;
+    // --- ------------------- ---
+
+    private static final boolean DEBUG = false;
 
     private static final String LABEL = "SampleLabel";
     private static final String KEY = "SampleKey";
     private static final String VALUE = "SampleValue";
-    private static final int VERTICES = 1000;
-    private static final int ITERATIONS = 100;
-    private static final boolean DEBUG = true;
 
     public static void main(String[] args) {
 
-        List<MeasuredTime> times = new ArrayList<>(ITERATIONS);
+        MeasuredTime[] times = new MeasuredTime[ITERATIONS];
         for (int i = 0; i < ITERATIONS; i++) {
-            MeasuredTime measuredTime = testJanusGraph(false);
-            times.add(measuredTime);
+            MeasuredTime measuredTime = testJanusGraph(USE_CUSTOM_IDS);
+            times[i] = measuredTime;
         }
+
+        printStatistics(times);
     }
 
     private static JanusGraph getJanusGraph(boolean customIds) {
@@ -58,10 +62,19 @@ public class JanusGraphSample {
     static class MeasuredTime {
         final long elapsedTime;
         final long creationTime;
+        final long insertTime;
 
-        public MeasuredTime(long elapsedTime, long creationTime) {
+        public MeasuredTime(long elapsedTime, long creationTime, long insertTime) {
             this.elapsedTime = elapsedTime;
             this.creationTime = creationTime;
+            this.insertTime = insertTime;
+        }
+
+        @Override
+        public String toString() {
+            return String.format(
+                    "elapsed time:  %d(ms), graph creation time: %d, vertices insertion time: %d(ms)",
+                    elapsedTime, creationTime, insertTime);
         }
     }
 
@@ -97,20 +110,51 @@ public class JanusGraphSample {
                 tx.commit();
             }
             long elapsedTime = System.currentTimeMillis();
+            long insertTime = elapsedTime - creationTime;
             elapsedTime = elapsedTime - time;
             creationTime = creationTime - time;
 
+            MeasuredTime measuredTime = new MeasuredTime(elapsedTime, creationTime, insertTime);
             if (DEBUG) {
-                printDebugMessage(graph, elapsedTime, creationTime);
+                printDebugMessage(graph, measuredTime);
             }
 
-            return new MeasuredTime(elapsedTime, creationTime);
+            return measuredTime;
         }
     }
 
-    private static void printDebugMessage(JanusGraph graph, long elapsedTime, long creationTime) {
+    private static void printStatistics(MeasuredTime[] times) {
+
+        System.out.printf("Vertices: %d%n", VERTICES);
+        System.out.printf("First call:%n");
+        System.out.printf("%s%n", times[0]);
+
+        double totalElapsedTime = 0;
+        double totalCreationTime = 0;
+        double totalInsertTime = 0;
+
+        for (int i = 1; i < times.length; i++) {
+            MeasuredTime measuredTime = times[i];
+            totalElapsedTime += measuredTime.elapsedTime;
+            totalCreationTime += measuredTime.creationTime;
+            totalInsertTime += measuredTime.insertTime;
+        }
+
+        // exclude first item
+        int size = times.length - 1;
+
+        System.out.printf("Other calls:%n");
+        System.out.printf("Average time elapsed: %.2f, creation: %.2f, insertion: %f.2%n",
+                totalElapsedTime / size, totalCreationTime / size, totalInsertTime / size);
+
+    }
+
+    private static void printDebugMessage(JanusGraph graph, MeasuredTime measuredTime) {
         long vertices = verticesCount(graph);
-        System.out.printf("[custom ids] vertices: %d, elapsed time:  %d(ms), graph creation time: %d%n",
-                vertices, elapsedTime, creationTime);
+        System.out.printf("[custom ids] vertices: %d," +
+                        " elapsed time:  %d(ms)," +
+                        " graph creation time: %d" +
+                        " vertices insertion time: %d(ms)%n",
+                vertices, measuredTime.elapsedTime, measuredTime.creationTime, measuredTime.insertTime);
     }
 }
