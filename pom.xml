@@ -35,7 +35,7 @@
                 <configuration>
                     <archive>
                         <manifest>
-                            <mainClass>sample.DataStorageSample</mainClass>
+                            <mainClass>sample3.JanusGraphSample</mainClass>
                         </manifest>
                     </archive>
                     <descriptorRefs>
@@ -62,6 +62,17 @@
             <artifactId>janusgraph-core</artifactId>
             <version>0.4.0</version>
         </dependency>
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-api</artifactId>
+            <version>1.7.28</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.logging.log4j</groupId>
+            <artifactId>log4j-slf4j-impl</artifactId>
+            <version>2.11.2</version>
+        </dependency>
+
     </dependencies>
 </project>
 
