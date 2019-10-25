@@ -36,8 +36,17 @@ public class DataStorageSample {
                     new RawNode("Node1", "value1"),
                     new RawNode("Node2", "value2"));
 
+//            final RawLink rawLink = new RawLink("Link1",
+//                    new RawLink("Link1",
+//                            new RawNode("Node0", "value2")),
+//                    new RawLink("Link0",
+//                            new RawNode("Node2", "value0"))
+//            );
+
             Link link = tx.getLink(rawLink);
-            System.out.printf("link: %s%n", link);
+            System.out.printf("raw     link: %s%n", rawLink);
+            System.out.printf("storage link: %s%n", link);
+            tx.dump();
 
             tx.commit();
         }
@@ -290,6 +299,24 @@ public class DataStorageSample {
             return addAtoms;
         }
 
+        public void dump() {
+            System.out.printf("--- Storage Dump ---%n");
+            Iterator<Vertex> iter = g.V();
+            while (iter.hasNext()) {
+                Vertex v = iter.next();
+                String kind = v.property(KIND).value().toString();
+                String type = v.property(TYPE).value().toString();
+                Object id = v.id();
+                if (LABEL_NODE.equals(kind)) {
+                    String value = v.property(VALUE).value().toString();
+                    System.out.printf("%s[%s]: %s(%s)%n", kind, id, type, value);
+                } else {
+//                    long[] ids = (long[]) v.property(IDS).value();
+                    System.out.printf("%s[%s]: %s(%s)%n", kind, id, type, Arrays.toString(ids(v)));
+                }
+            }
+            System.out.printf("--- ------------ ---%n");
+        }
 
         static long id(Vertex v) {
             return (long) v.id();
