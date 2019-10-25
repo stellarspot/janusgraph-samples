@@ -23,131 +23,38 @@ import static org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.__.*;
 
 public class DataStorageSample {
 
+    private static final boolean DEBUG = false;
+
     public static void main(String[] args) throws Exception {
 
         try (JanusGraphStorage storage = getInMemoryStorage();
              JanusGraphStorageTransaction tx = storage.tx()) {
 
-            RawNode rawNode = new RawNode("Node", "value");
-            Node node = tx.getNode(rawNode);
-            System.out.printf("node: %s%n", node);
-
-            RawLink rawLink = new RawLink("Link",
-                    new RawNode("Node1", "value1"),
-                    new RawNode("Node2", "value2"));
-
-//            final RawLink rawLink = new RawLink("Link1",
-//                    new RawLink("Link1",
-//                            new RawNode("Node0", "value2")),
-//                    new RawLink("Link0",
-//                            new RawNode("Node2", "value0"))
-//            );
+            // try to change Link1 type to Link2
+            final RawLink rawLink = new RawLink("Link1",
+                    new RawLink("Link2",
+                            new RawNode("Node1", "value1")),
+                    new RawLink("Link3",
+                            new RawNode("Node2", "value2")));
 
             Link link = tx.getLink(rawLink);
             System.out.printf("raw     link: %s%n", rawLink);
             System.out.printf("storage link: %s%n", link);
-            tx.dump();
 
+            tx.dump();
             tx.commit();
         }
     }
 
     private static JanusGraph getInMemoryGraph() {
-        JanusGraph graph = JanusGraphFactory.build()
+        return JanusGraphFactory.build()
                 .set("storage.backend", "inmemory")
                 .set("graph.set-vertex-id", "true")
-                //.set("query.force-index", true)
                 .open();
-        return graph;
     }
 
     private static JanusGraphStorage getInMemoryStorage() {
         return new JanusGraphStorage(getInMemoryGraph());
-    }
-
-    // Raw Atoms
-    static class RawAtom {
-        final String type;
-
-        public RawAtom(String type) {
-            this.type = type;
-        }
-    }
-
-    static class RawNode extends RawAtom {
-        final String value;
-
-        public RawNode(String type, String value) {
-            super(type);
-            this.value = value;
-        }
-
-        @Override
-        public String toString() {
-            return String.format("%s(%s)", type, value);
-        }
-    }
-
-    static class RawLink extends RawAtom {
-        final RawAtom[] atoms;
-
-        public RawLink(String type, RawAtom... atoms) {
-            super(type);
-            this.atoms = atoms;
-        }
-
-        public int getArity() {
-            return atoms.length;
-        }
-    }
-
-    // Atoms in JanusGraph Storage
-
-    static class Atom {
-        final long id;
-        final String type;
-
-        public Atom(long id, String type) {
-            this.id = id;
-            this.type = type;
-        }
-    }
-
-    static class Node extends Atom {
-        final String value;
-
-        public Node(long id, String type, String value) {
-            super(id, type);
-            this.value = value;
-        }
-
-        @Override
-        public String toString() {
-            return String.format("%s(%s) - Node[%d]", type, value, id);
-        }
-    }
-
-    static class Link extends Atom {
-
-        final long[] ids;
-
-        public Link(long id, String type, long... ids) {
-            super(id, type);
-            this.ids = ids;
-        }
-
-        public int getArity() {
-            return ids.length;
-        }
-
-        public Atom getAtom(JanusGraphStorageTransaction tx, int index) {
-            throw new UnsupportedOperationException("Not implemented yet!");
-        }
-
-        @Override
-        public String toString() {
-            return String.format("%s(%s) - Link[%d]", type, Arrays.toString(ids), id);
-        }
     }
 
     // JanusGraph Storage
@@ -180,10 +87,10 @@ public class DataStorageSample {
     static class JanusGraphStorageTransaction implements Closeable {
 
         // "type" is a reserved property name in JanusGraph
-        static final String KIND = "as_kind";
-        static final String TYPE = "as_type";
-        static final String VALUE = "as_value";
-        static final String IDS = "as_ids";
+        static final String KIND = "prop_kind";
+        static final String TYPE = "prop_type";
+        static final String VALUE = "prop_value";
+        static final String IDS = "prop_ids";
 
         static final String LABEL_NODE = "Node";
         static final String LABEL_LINK = "Link";
@@ -198,22 +105,30 @@ public class DataStorageSample {
             this.g = tx.traversal();
         }
 
-
         public Node getNode(RawNode node) {
-            Vertex v = g
+            GraphTraversal<String, Vertex> traversal = g
                     .inject("nothing")
-                    .union(getOrCreateNode(node))
-                    .next();
+                    .union(getOrCreateNode(node));
+
+            if (DEBUG) {
+                System.out.printf("get node: %s%n", traversal);
+            }
+
+            Vertex v = traversal.next();
             return new Node(id(v), node.type, node.value);
         }
 
         public Link getLink(RawLink link) {
 
-            Vertex v = g
+            GraphTraversal<String, Vertex> traversal = g
                     .inject("nothing")
-                    .union(getOrCreateLink(link))
-                    .next();
+                    .union(getOrCreateLink(link));
 
+            if (DEBUG) {
+                System.out.printf("get link: %s%n", traversal);
+            }
+
+            Vertex v = traversal.next();
             return new Link(id(v), link.type, ids(v));
         }
 
@@ -255,17 +170,6 @@ public class DataStorageSample {
 
         private GraphTraversal<Object, Vertex> getOrCreateLink(RawLink link) {
 
-            Function<Traverser<Object>, Iterator<String>> mapIds = t -> {
-                ArrayList arrayList = (ArrayList) t.get();
-                long[] ids = new long[arrayList.size()];
-                for (int i = 0; i < arrayList.size(); i++) {
-                    ids[i] = (long) arrayList.get(i);
-                }
-                List<String> list = new ArrayList<>(1);
-                list.add(idsToString(ids));
-                return list.iterator();
-            };
-
             GraphTraversal<Object, Vertex> addVertex = union(getOrCreateAtoms(link))
                     .id()
                     .fold()
@@ -273,7 +177,7 @@ public class DataStorageSample {
                     .addV(LABEL_LINK)
                     .property(KIND, LABEL_LINK)
                     .property(TYPE, link.type)
-                    .property(IDS, select("ids").flatMap(mapIds))
+                    .property(IDS, select("ids").flatMap(MAP_IDS))
                     .property(T.id, storage.getNextId());
 
             return union(getOrCreateAtoms(link))
@@ -284,7 +188,7 @@ public class DataStorageSample {
                     .hasLabel(LABEL_LINK)
                     .has(KIND, LABEL_LINK)
                     .has(TYPE, link.type)
-                    .has(IDS, select("ids").flatMap(mapIds))
+                    .has(IDS, select("ids").flatMap(MAP_IDS))
                     .fold()
                     .coalesce(unfold(), addVertex);
         }
@@ -301,9 +205,9 @@ public class DataStorageSample {
 
         public void dump() {
             System.out.printf("--- Storage Dump ---%n");
-            Iterator<Vertex> iter = g.V();
-            while (iter.hasNext()) {
-                Vertex v = iter.next();
+            Iterator<Vertex> vertices = g.V();
+            while (vertices.hasNext()) {
+                Vertex v = vertices.next();
                 String kind = v.property(KIND).value().toString();
                 String type = v.property(TYPE).value().toString();
                 Object id = v.id();
@@ -311,7 +215,6 @@ public class DataStorageSample {
                     String value = v.property(VALUE).value().toString();
                     System.out.printf("%s[%s]: %s(%s)%n", kind, id, type, value);
                 } else {
-//                    long[] ids = (long[]) v.property(IDS).value();
                     System.out.printf("%s[%s]: %s(%s)%n", kind, id, type, Arrays.toString(ids(v)));
                 }
             }
@@ -327,6 +230,17 @@ public class DataStorageSample {
             return toIds(ids);
         }
     }
+
+    static final Function<Traverser<Object>, Iterator<String>> MAP_IDS = t -> {
+        ArrayList arrayList = (ArrayList) t.get();
+        long[] ids = new long[arrayList.size()];
+        for (int i = 0; i < arrayList.size(); i++) {
+            ids[i] = (long) arrayList.get(i);
+        }
+        List<String> list = new ArrayList<>(1);
+        list.add(idsToString(ids));
+        return list.iterator();
+    };
 
     static String idsToString(long... ids) {
         StringBuilder builder = new StringBuilder();
@@ -345,5 +259,90 @@ public class DataStorageSample {
             ids[i] = Long.parseLong(split[i]);
         }
         return ids;
+    }
+
+    // Raw Atoms
+    static class RawAtom {
+
+        final String type;
+
+        public RawAtom(String type) {
+            this.type = type;
+        }
+    }
+
+    static class RawNode extends RawAtom {
+
+        final String value;
+
+        public RawNode(String type, String value) {
+            super(type);
+            this.value = value;
+        }
+
+        @Override
+        public String toString() {
+            return String.format("%s(%s)", type, value);
+        }
+    }
+
+    static class RawLink extends RawAtom {
+
+        final RawAtom[] atoms;
+
+        public RawLink(String type, RawAtom... atoms) {
+            super(type);
+            this.atoms = atoms;
+        }
+
+        public int getArity() {
+            return atoms.length;
+        }
+
+        @Override
+        public String toString() {
+            return String.format("%s(%s)", type, Arrays.toString(atoms));
+        }
+    }
+
+    // Atoms in JanusGraph Storage
+
+    static class Atom {
+        final long id;
+        final String type;
+
+        public Atom(long id, String type) {
+            this.id = id;
+            this.type = type;
+        }
+    }
+
+    static class Node extends Atom {
+        final String value;
+
+        public Node(long id, String type, String value) {
+            super(id, type);
+            this.value = value;
+        }
+
+        @Override
+        public String toString() {
+            return String.format("%s(%s) - Node[%d]", type, value, id);
+        }
+    }
+
+    static class Link extends Atom {
+
+        final long[] ids;
+
+        public Link(long id, String type, long... ids) {
+            super(id, type);
+            this.ids = ids;
+        }
+
+        @Override
+        public String toString() {
+            return String.format("Link[%d]: %s(%s)", id, type, Arrays.toString(ids));
+        }
     }
 }
